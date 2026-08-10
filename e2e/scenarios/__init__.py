@@ -8,6 +8,7 @@ from . import (
     m2_claude_sees_codex,
     m3_round_trip,
     m4_receipts,
+    m5_hardening,
 )
 
 Scenario = namedtuple("Scenario", "name summary run")
@@ -37,5 +38,10 @@ SCENARIOS = [
         "m4-receipts",
         "a held message reports held, then delivered, into the Codex thread",
         m4_receipts.run,
+    ),
+    Scenario(
+        "m5-hardening",
+        "doctor agrees with reality and an unreachable peer errors, not succeeds",
+        m5_hardening.run,
     ),
 ]

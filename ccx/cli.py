@@ -71,12 +71,15 @@ def _codex(extra):
 
     from . import codexrpc
 
+    # CODEX_HOME is honoured so a session can be pointed at a scratch home;
+    # the daemon puts its control socket underneath it.
+    home = os.environ.get("CODEX_HOME")
     try:
-        codexrpc.daemon_start()
+        codexrpc.daemon_start(home)
     except codexrpc.CodexError as exc:
         print(f"ccx codex: {exc}", file=sys.stderr)
         return 1
-    sock = codexrpc.control_socket()
+    sock = codexrpc.control_socket(home)
     argv = ["codex", "--remote", f"unix://{sock}", *[a for a in extra if a != "--"]]
     os.execvp("codex", argv)
 
