@@ -17,6 +17,8 @@ import socket
 import subprocess
 import time
 
+from ccx import claudereg, envelope
+
 from . import scratch as scratch_mod
 
 _live = []
@@ -184,6 +186,45 @@ class ClaudeSession:
         s.connect(self.socket_path)
         s.sendall((json.dumps(obj) + "\n").encode())
         s.close()
+
+    def prompt(self, text):
+        """Drive this session by writing into its own socket.
+
+        Never write into another live session's socket during a test; a session
+        talking to itself is the sanctioned way to make it act.
+
+        The envelope has to attest `from-mode`. A bare message from an
+        unattested sender is *held* for user approval even in a session running
+        with bypass permissions, and an unattended harness would sit there
+        forever.
+        """
+        address = claudereg.address(self.socket_path)
+        self.send_line(
+            envelope.wire_message(
+                envelope.encode(
+                    text,
+                    from_=address,
+                    from_name="ccx-e2e-harness",
+                    from_mode="bypass",
+                ),
+                from_address=address,
+            )
+        )
+
+    def wait_for_transcript(self, predicate, timeout=180, what="a matching record"):
+        deadline = time.time() + timeout
+        seen = 0
+        while time.time() < deadline:
+            records = self.transcript()
+            seen = len(records)
+            for record in records:
+                if predicate(record):
+                    return record
+            time.sleep(1.5)
+        raise AssertionError(
+            f"{self.name}: {what} never appeared in the transcript within "
+            f"{timeout}s ({seen} records seen)\n--- tmux pane ---\n{self.pane(60)}"
+        )
 
     def transcript(self):
         """Every JSONL record this session has written, oldest first."""

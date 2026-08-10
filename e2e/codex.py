@@ -108,7 +108,7 @@ class CodexHome:
             self._client = None
         if self.started_daemon:
             try:
-                codexrpc.daemon_stop(self.root, timeout=20)
+                codexrpc.daemon_stop(self.root, timeout=10)
             except subprocess.TimeoutExpired:
                 if not quiet:
                     print("  ! `codex app-server daemon stop` hung; killing the pid")

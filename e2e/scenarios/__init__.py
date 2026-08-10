@@ -2,7 +2,7 @@
 
 from collections import namedtuple
 
-from . import m0_isolation, m1_codex_inject
+from . import m0_isolation, m1_codex_inject, m2_claude_sees_codex
 
 Scenario = namedtuple("Scenario", "name summary run")
 
@@ -16,5 +16,10 @@ SCENARIOS = [
         "m1-codex-inject",
         "a turn injected over the app-server socket renders in a real Codex TUI",
         m1_codex_inject.run,
+    ),
+    Scenario(
+        "m2-claude-sees-codex",
+        "a Claude session lists a Codex thread as a peer and messages it",
+        m2_claude_sees_codex.run,
     ),
 ]

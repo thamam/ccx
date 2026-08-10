@@ -14,7 +14,10 @@ def main(argv=None):
     parser.add_argument("--version", action="version", version=f"ccx {__version__}")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    sub.add_parser("daemon", help="supervise stubs for live Codex threads")
+    p_daemon = sub.add_parser("daemon", help="supervise stubs for live Codex threads")
+    p_daemon.add_argument("--codex-home", default=None)
+    p_daemon.add_argument("--poll", type=float, default=2.0)
+    p_daemon.add_argument("--verbose", action="store_true")
     sub.add_parser("mcp", help="run the stdio MCP server Codex talks to")
     sub.add_parser("doctor", help="check every protocol contract ccx depends on")
 
@@ -35,6 +38,11 @@ def main(argv=None):
         from e2e import runner
 
         return runner.run(only=args.only, keep=args.keep)
+
+    if args.command == "daemon":
+        from .bridged import Bridge
+
+        return Bridge(args.codex_home, args.poll, args.verbose).run()
 
     if args.command == "doctor":
         return _doctor()

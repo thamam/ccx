@@ -126,7 +126,23 @@ So `SendMessage({to: "/tmp/cc-socks/48210.sock", ...})` works directly, and
 
 Name collisions require a disambiguator: the tool errors with
 `Re-send with the ref to confirm you mean: <name> [467593]`. Ref is the first
-8 hex of a hash. **Name stubs distinctly to avoid this.**
+8 hex of a hash.
+
+**A distinct name is not enough to avoid this.** Verified 2026-08-10: a peer
+that is not already part of the conversation gets the same confirmation demand
+even when its name is unique —
+
+```
+'codex-cccdx-messaging-efac37' is not an agent in this conversation.
+Re-send with the ref to confirm you mean:
+  codex-cccdx-messaging-efac37 [428f2d] — Claude session, on this machine
+```
+
+The sending model recovers on its own by re-sending with the ref, so this costs
+a round trip rather than a delivery. Note also the description Claude renders:
+**"Claude session, on this machine"** — the receiving side has no way to tell a
+stub from a real Claude peer, which is what the `from-name="codex:<thread>"`
+stamp in M5 is for.
 
 ### 1.4 Wire format — inbound to a Claude session
 
@@ -151,7 +167,13 @@ Envelope rules:
   discarded** and the raw text is shown instead. Emit attributes in this order.
 - Body is wrapped in `\n` … `\n` inside the tag.
 - `from-name` is truncated to 64 graphemes with `…`, and `"`, `<`, `>` stripped.
-- `from-mode` ∈ `bypass` | `prompting`.
+- `from-mode` ∈ `bypass` | `prompting`. **Omitting it is not neutral.** A
+  message from a sender that does not attest its permission mode is *held* for
+  the recipient user's approval — even in a session running with
+  `--dangerously-skip-permissions`, which reports it as "from an unidentified
+  session … The sender did not attest its permission mode and this session
+  bypasses prompts." Anything unattended must attest, or set
+  `crossSessionInbound: "accept"` on the receiving session.
 - `hop-chain` is a comma list of 24-hex ids, max 32 — loop prevention.
 - `priority`: `next` (normal) or `now` (jumps the queue, bypasses ordering).
 - `msgV` is 1.
