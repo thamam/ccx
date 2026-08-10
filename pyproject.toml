@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ccx"
+version = "0.1.0"
+description = "Make Codex threads and Claude Code sessions first-class message peers."
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+ccx = "ccx.cli:main"
+
+[tool.setuptools]
+packages = ["ccx", "e2e", "e2e.scenarios"]
