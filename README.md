@@ -23,24 +23,53 @@ copying `from` into `to`. There is no routing table.
 
 ## Install
 
-Python 3.11+, standard library only. Every dependency would be one more thing
-to install before two agents can talk.
+Two commands per harness. ccx is Python 3.11+ and standard library only, so the
+plugin directory *is* the install — there is nothing to build and nothing to
+`pip install`.
+
+```bash
+# Codex — adds the peers_list and peer_send tools
+codex plugin marketplace add thamam/ccx
+codex plugin add ccx@ccx
+
+# Claude Code — keeps the bridge daemon running
+claude plugin marketplace add thamam/ccx
+claude plugin install ccx@ccx
+```
+
+The two harnesses read different manifests, so the repo ships both:
+`.claude-plugin/plugin.json` → `mcp-config.json` (using `${CLAUDE_PLUGIN_ROOT}`),
+and `.codex-plugin/plugin.json` → `.mcp.json` (using paths relative to the
+plugin root). They are not interchangeable.
+
+On the Claude side the plugin installs one `SessionStart` hook and nothing else
+— Claude needs no ccx code, only the daemon alive. The hook is idempotent, runs
+in about 40 ms, and if `python3` is missing it logs to
+`$TMPDIR/ccx-daemon.log` and lets the session open normally.
+
+**Contributor install** — for working on ccx itself, or to get the `ccx` command
+on your `PATH`:
 
 ```bash
 pip install -e .
-```
-
-Then, once:
-
-```bash
-codex mcp add ccx -- ccx mcp
+codex mcp add ccx -- ccx mcp     # only if you are not using the plugin
 ```
 
 ## Use
 
+Nothing to start: the Claude-side hook brings up `ccx daemon`. To run it by
+hand, or to launch a Codex session that can be reached:
+
 ```bash
 ccx daemon          # keeps one stub per live Codex thread
 ccx codex           # launch a Codex session that can RECEIVE messages
+```
+
+Worth aliasing, because a plain `codex` session can send but can never be
+reached:
+
+```bash
+alias codex='ccx codex'
 ```
 
 **The launch asymmetry matters.** Sending works from any Codex session.
@@ -53,6 +82,12 @@ codex --remote unix://~/.codex/app-server-control/app-server-control.sock
 
 A plain `codex` session cannot be reached, and will not appear in `ListAgents`.
 Addressing one is reported as an error rather than swallowed.
+
+**The ChatGPT desktop app is not covered.** Verified on 2026-08-10: the desktop
+app runs its own IPC on `~/.codex/ipc/ipc.sock` and does not attach to the
+app-server daemon, so with the daemon up, `thread/loaded/list` returns zero
+threads while the app is running. ccx can neither see nor reach desktop
+sessions. This is the terminal `codex` CLI only.
 
 From a Codex session:
 
@@ -110,6 +145,7 @@ when it is killed mid-run.
 | `m4-receipts` | a held message reports `HELD`, then `DELIVERED`, into the Codex thread |
 | `m5-hardening` | doctor agrees with reality; an unreachable peer errors |
 | `m6-conversation` | a three-message conversation in both directions, addressed only by received addresses |
+| `m7-plugin-install` | a real marketplace install on both harnesses brings ccx up by itself |
 
 ## What this is not
 
