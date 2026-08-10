@@ -44,6 +44,11 @@ def main(argv=None):
 
         return Bridge(args.codex_home, args.poll, args.verbose).run()
 
+    if args.command == "mcp":
+        from .mcp import main as mcp_main
+
+        return mcp_main()
+
     if args.command == "doctor":
         return _doctor()
 

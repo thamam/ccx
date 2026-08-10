@@ -65,6 +65,7 @@ class Stub:
                 name=self.name,
                 sock=self.sock_path,
                 started_at=time.time(),
+                extra={"ccxStub": True, "ccxThreadId": self.thread_id},
             )
         )
         self.codex = codexrpc.Codex(self.codex_home)
