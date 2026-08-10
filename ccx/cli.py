@@ -19,7 +19,10 @@ def main(argv=None):
     p_daemon.add_argument("--poll", type=float, default=2.0)
     p_daemon.add_argument("--verbose", action="store_true")
     sub.add_parser("mcp", help="run the stdio MCP server Codex talks to")
-    sub.add_parser("doctor", help="check every protocol contract ccx depends on")
+    p_doctor = sub.add_parser(
+        "doctor", help="check every protocol contract ccx depends on"
+    )
+    p_doctor.add_argument("--codex-home", default=None)
 
     p_codex = sub.add_parser("codex", help="launch codex attached to the app-server")
     p_codex.add_argument("args", nargs=argparse.REMAINDER)
@@ -50,18 +53,32 @@ def main(argv=None):
         return mcp_main()
 
     if args.command == "doctor":
-        return _doctor()
+        from .doctor import run as doctor_run
+
+        return doctor_run(args.codex_home)
+
+    if args.command == "codex":
+        return _codex(args.args)
 
     print(f"ccx {args.command}: not implemented yet", file=sys.stderr)
     return 3
 
 
-def _doctor():
-    """Placeholder until M5 — the real version exercises all four contracts."""
-    print("ccx doctor: not implemented yet (M5)")
-    print("  contracts to check: Claude socket write, registry visibility,")
-    print("  Codex daemon RPC, MCP _meta shape")
-    return 3
+def _codex(extra):
+    """Launch codex attached to the app-server, which is what makes a thread
+    reachable at all. Sending works from any Codex session; receiving does not."""
+    import os
+
+    from . import codexrpc
+
+    try:
+        codexrpc.daemon_start()
+    except codexrpc.CodexError as exc:
+        print(f"ccx codex: {exc}", file=sys.stderr)
+        return 1
+    sock = codexrpc.control_socket()
+    argv = ["codex", "--remote", f"unix://{sock}", *[a for a in extra if a != "--"]]
+    os.execvp("codex", argv)
 
 
 if __name__ == "__main__":

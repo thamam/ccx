@@ -7,6 +7,7 @@ from . import (
     m1_codex_inject,
     m2_claude_sees_codex,
     m3_round_trip,
+    m4_receipts,
 )
 
 Scenario = namedtuple("Scenario", "name summary run")
@@ -31,5 +32,10 @@ SCENARIOS = [
         "m3-round-trip",
         "Codex messages a Claude session and the reply lands in the same thread",
         m3_round_trip.run,
+    ),
+    Scenario(
+        "m4-receipts",
+        "a held message reports held, then delivered, into the Codex thread",
+        m4_receipts.run,
     ),
 ]

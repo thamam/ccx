@@ -17,6 +17,7 @@ class Daemon:
         self.codex_home = codex_home
         self.poll = poll
         self.proc = None
+        self._log = ""
         self._stopped = False
 
     def start(self):
@@ -73,19 +74,25 @@ class Daemon:
         return False
 
     def output(self):
-        """Whatever the daemon has written so far, without blocking on it."""
+        """Everything the daemon has written so far.
+
+        Draining the pipe is destructive, so what is read is accumulated —
+        callers assert against the whole log, not against whatever happened to
+        be buffered at that moment.
+        """
         if not self.proc or not self.proc.stdout:
-            return ""
+            return self._log
         os.set_blocking(self.proc.stdout.fileno(), False)
         try:
-            return self.proc.stdout.read() or ""
+            self._log += self.proc.stdout.read() or ""
         except (OSError, ValueError):
-            return ""
+            pass
         finally:
             try:
                 os.set_blocking(self.proc.stdout.fileno(), True)
             except (OSError, ValueError):
                 pass
+        return self._log
 
     def stop(self, quiet=False, timeout=15):
         if self._stopped:

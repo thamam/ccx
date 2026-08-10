@@ -28,6 +28,22 @@ from . import claudereg, codexrpc, envelope
 BACKLOG = 16
 MAX_LINE = 1024 * 1024  # Claude drops the connection past 1 MiB; match it.
 
+# Wording matters here. A model that reads "held" as "refused" will give up on a
+# message that is one keypress from being delivered.
+RECEIPTS = {
+    "held": (
+        "HELD",
+        "is waiting on the recipient user's approval. It has NOT been delivered "
+        "yet, and it has NOT been refused. A further receipt will follow.",
+    ),
+    "delivered": ("DELIVERED", "was approved by the recipient user and delivered."),
+    "denied": ("DENIED", "was declined by the recipient user. It was not delivered."),
+    "expired": (
+        "EXPIRED",
+        "timed out waiting for approval and was not delivered.",
+    ),
+}
+
 
 class Stub:
     def __init__(self, thread_id, name, cwd, codex_home=None, verbose=False):
@@ -143,7 +159,7 @@ class Stub:
             self._log(f"ignoring non-JSON line ({len(raw)} bytes)")
             return
         if msg.get("type") == "control":
-            self._log(f"control frame (not handled until M4): {msg.get('action')}")
+            self._control(msg)
             return
         content = (msg.get("message") or {}).get("content")
         if not isinstance(content, str):
@@ -156,6 +172,38 @@ class Stub:
             self._log(f"delivered {len(text)} chars to {self.thread_id}")
         except codexrpc.CodexError as exc:
             self._log(f"delivery failed: {exc}")
+
+    def _control(self, msg):
+        """Relay a delivery receipt into the Codex thread.
+
+        Without this, a Codex agent whose message is sitting in a Claude
+        approval prompt sees silence and reads it as refusal.
+
+        This uses `turn/start` rather than `thread/inject_items`. Injected items
+        are cheaper — they cost no model turn — but they only reach the model
+        when a turn happens to run afterwards, and the moment a receipt matters
+        most is exactly when the agent has finished sending and gone idle. An
+        injected receipt would then sit unread until the user next typed, which
+        is barely better than the silence this exists to fix. `turn/start`
+        queues behind a running turn rather than erroring, so it lands as soon
+        as the agent is free either way.
+        """
+        action = msg.get("action")
+        if action != "peer_message_status":
+            self._log(f"ignoring control action {action!r}")
+            return
+        status = msg.get("status")
+        receipt = RECEIPTS.get(status)
+        if receipt is None:
+            self._log(f"unknown peer_message_status {status!r}")
+            return
+        token, note = receipt
+        text = f"[ccx] receipt {token}: your message {msg.get('orig_msg_id')} {note}"
+        try:
+            self.codex.start_turn(self.thread_id, text)
+            self._log(f"relayed receipt {status}")
+        except codexrpc.CodexError as exc:
+            self._log(f"could not relay receipt {status}: {exc}")
 
     def _render(self, body, attrs, msg):
         """What the Codex agent sees.

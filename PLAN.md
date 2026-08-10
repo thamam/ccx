@@ -168,8 +168,14 @@ TUI print `PONG`. Capture the tmux pane as evidence.
 spawn on appear, reap on disappear, remove the registry file on exit **and on
 crash**.
 
-Naming: `codex-<cwd-slug>-<short-thread-id>`, distinct enough to avoid Claude's
-`[ref]` disambiguation prompt.
+Naming: `codex-<cwd-slug>-<short-thread-id>`.
+
+**Correction, established during M2 (2026-08-10):** a distinct name does *not*
+avoid the `[ref]` confirmation. Claude demands it for **any peer not already in
+the conversation**, regardless of uniqueness — `'<name>' is not an agent in this
+conversation. Re-send with the ref`. The sending model recovers on its own, so it
+costs one round trip, not a delivery. Do not design against it; do surface the
+ref in `peers_list` output so a Codex agent can address a Claude peer first-time.
 
 **Accept, end to end:**
 1. Start a Codex TUI attached to the daemon.
@@ -226,6 +232,14 @@ answers.
 ---
 
 ## 4. Hazards
+
+**An unattested envelope is held, even in bypass mode.** Established during M3:
+an envelope with no `from-mode` attribute is withheld for the recipient user's
+approval *even when the receiving session runs with
+`--dangerously-skip-permissions`* — "the sender did not attest its permission
+mode". Anything unattended must attest `from-mode`, or messages silently sit in
+an approval prompt nobody is watching. This is also why M4 (receipts) is not
+optional: without it the sender cannot tell held from ignored.
 
 **Version drift is the real cost.** Neither surface is public. Claude's `uds:`
 scheme, registry shape and envelope are 2.1.226 internals; Codex's app-server is

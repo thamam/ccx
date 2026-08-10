@@ -257,8 +257,29 @@ class Codex:
 
     def __init__(self, codex_home=None, timeout=10):
         self.codex_home = codex_home
-        self.rpc = WsRpc(control_socket(codex_home), timeout=timeout)
+        self.timeout = timeout
+        self.rpc = None
+        self.info = None
+        self._connect()
+
+    def _connect(self):
+        self.rpc = WsRpc(control_socket(self.codex_home), timeout=self.timeout)
         self.info = self.rpc.call("initialize", {"clientInfo": CLIENT_INFO})
+
+    def call(self, method, params=None, **kwargs):
+        """One retry across a reconnect.
+
+        The daemon drops idle control connections, and a long-lived bridge that
+        gave up on the first closed socket would stop relaying without saying so.
+        """
+        try:
+            return self.rpc.call(method, params, **kwargs)
+        except CodexError as exc:
+            if "connection closed" not in str(exc):
+                raise
+            self.rpc.close()
+            self._connect()
+            return self.rpc.call(method, params, **kwargs)
 
     @classmethod
     def connect(cls, codex_home=None, start=False):
@@ -271,24 +292,32 @@ class Codex:
         return cls(codex_home), started
 
     def list_threads(self):
-        result = self.rpc.call("thread/loaded/list", {})
+        result = self.call("thread/loaded/list", {})
         return list(result.get("data") or [])
 
     def start_turn(self, thread_id, text):
         """Inject a user turn. Queues if a turn is already running."""
-        return self.rpc.call(
+        return self.call(
             "turn/start",
             {"threadId": thread_id, "input": [{"type": "text", "text": text}]},
         )
 
     def inject_items(self, thread_id, items):
         """Append items to history without starting a turn."""
-        return self.rpc.call(
+        return self.call(
             "thread/inject_items", {"threadId": thread_id, "items": items}
         )
 
-    def read_thread(self, thread_id):
-        return self.rpc.call("thread/read", {"threadId": thread_id})
+    def read_thread(self, thread_id, include_turns=False):
+        """Thread metadata, and with include_turns the rollout history.
+
+        Injected items only show up with include_turns — the default response
+        carries an empty `turns`, which reads like nothing was ever appended.
+        """
+        return self.call(
+            "thread/read",
+            {"threadId": thread_id, "includeTurns": include_turns},
+        )
 
     def close(self):
         self.rpc.close()

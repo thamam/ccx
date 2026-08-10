@@ -68,9 +68,12 @@ def tmux(*args, check=True):
 class ClaudeSession:
     """An interactive Claude Code session in a scratch config dir."""
 
-    def __init__(self, scratch, name, oauth_token, cwd=None):
+    def __init__(self, scratch, name, oauth_token, cwd=None, bypass=True):
         self.scratch = scratch
         self.name = name
+        # A session in prompting mode holds inbound peer messages for approval.
+        # That is the state M4's receipts exist to make visible.
+        self.bypass = bypass
         self.tmux_name = f"ccx-{name}"
         self.cwd = cwd or scratch.wd
         self.overrides = scratch.child_overrides(oauth_token)
@@ -104,12 +107,9 @@ class ClaudeSession:
             parts += ["-u", key]
         for key, value in sorted(self.overrides.items()):
             parts.append(f"{key}={value}")
-        parts += [
-            "claude",
-            "--name",
-            self.name,
-            "--dangerously-skip-permissions",
-        ]
+        parts += ["claude", "--name", self.name]
+        if self.bypass:
+            parts.append("--dangerously-skip-permissions")
         return " ".join(shlex.quote(p) for p in parts)
 
     def _await_registration(self, timeout, need_socket):
@@ -210,6 +210,29 @@ class ClaudeSession:
                 from_address=address,
             )
         )
+
+    def wait_for_pane(self, needle, timeout=120):
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            pane = self.pane()
+            if needle in pane:
+                return pane
+            time.sleep(1)
+        raise AssertionError(
+            f"{self.name}: {needle!r} never appeared in the pane within "
+            f"{timeout}s\n--- tmux pane ---\n{self.pane(80)}"
+        )
+
+    def answer_held_message(self, deliver=True):
+        """Answer the held-peer-message prompt the way a user would.
+
+        The prompt defaults to Deny, so delivering means moving down one.
+        """
+        self.wait_for_pane("Held message from another session")
+        if deliver:
+            tmux("send-keys", "-t", self.tmux_name, "Down")
+            time.sleep(0.4)
+        tmux("send-keys", "-t", self.tmux_name, "Enter")
 
     def wait_for_transcript(self, predicate, timeout=180, what="a matching record"):
         deadline = time.time() + timeout
