@@ -78,7 +78,11 @@ def _assert_clean(scratch, before):
 
 def _codex_snapshot():
     """Whether the *user's* app-server daemon is up. Must not change across a run."""
-    return os.path.exists(codexrpc.CONTROL_SOCK)
+    return os.path.exists(
+        os.path.join(
+            codexrpc.DEFAULT_CODEX_HOME, "app-server-control", "app-server-control.sock"
+        )
+    )
 
 
 def _indent(text, prefix="    "):

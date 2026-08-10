@@ -15,5 +15,6 @@
     "app-server",
     "interop"
   ],
-  "mcpServers": "./mcp-config.json"
+  "mcpServers": "./mcp-config.json",
+  "hooks": "./ccx-hooks.json"
 }

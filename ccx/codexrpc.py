@@ -24,9 +24,7 @@ import sys
 import threading
 import time
 
-CONTROL_SOCK = os.path.expanduser(
-    "~/.codex/app-server-control/app-server-control.sock"
-)
+DEFAULT_CODEX_HOME = os.path.expanduser("~/.codex")
 
 CLIENT_INFO = {"name": "ccx", "title": "ccx", "version": "0.1"}
 
@@ -44,18 +42,25 @@ class NoDaemon(CodexError):
 # ---------------------------------------------------------------------------
 
 
-def control_socket(codex_home=None):
-    if codex_home:
-        return os.path.join(
-            codex_home, "app-server-control", "app-server-control.sock"
-        )
-    return CONTROL_SOCK
+def codex_home(explicit=None):
+    """An explicit home wins, then CODEX_HOME, then the default.
+
+    Honouring the environment matters: the SessionStart hook starts the daemon
+    with whatever the session inherited, and a bridge that ignored CODEX_HOME
+    would quietly reach into the user's default home instead.
+    """
+    return explicit or os.environ.get("CODEX_HOME") or DEFAULT_CODEX_HOME
+
+
+def control_socket(home=None):
+    return os.path.join(
+        codex_home(home), "app-server-control", "app-server-control.sock"
+    )
 
 
 def _codex(*args, codex_home=None, timeout=30):
     env = dict(os.environ)
-    if codex_home:
-        env["CODEX_HOME"] = codex_home
+    env["CODEX_HOME"] = globals()["codex_home"](codex_home)
     return subprocess.run(
         ["codex", *args], capture_output=True, text=True, env=env, timeout=timeout
     )

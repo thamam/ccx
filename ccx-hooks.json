@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/ensure-daemon.sh\"",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/ensure-daemon.sh\"",
             "timeout": 5
           }
         ]

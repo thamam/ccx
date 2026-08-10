@@ -10,6 +10,7 @@ from . import (
     m4_receipts,
     m5_hardening,
     m6_conversation,
+    m7_plugin_install,
 )
 
 Scenario = namedtuple("Scenario", "name summary run")
@@ -49,5 +50,10 @@ SCENARIOS = [
         "m6-conversation",
         "the definition of done: a multi-turn conversation in both directions",
         m6_conversation.run,
+    ),
+    Scenario(
+        "m7-plugin-install",
+        "a real marketplace install on both harnesses brings ccx up by itself",
+        m7_plugin_install.run,
     ),
 ]

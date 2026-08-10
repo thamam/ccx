@@ -68,7 +68,9 @@ def tmux(*args, check=True):
 class ClaudeSession:
     """An interactive Claude Code session in a scratch config dir."""
 
-    def __init__(self, scratch, name, oauth_token, cwd=None, bypass=True):
+    def __init__(
+        self, scratch, name, oauth_token, cwd=None, bypass=True, extra_env=None
+    ):
         self.scratch = scratch
         self.name = name
         # A session in prompting mode holds inbound peer messages for approval.
@@ -77,6 +79,9 @@ class ClaudeSession:
         self.tmux_name = f"ccx-{name}"
         self.cwd = cwd or scratch.wd
         self.overrides = scratch.child_overrides(oauth_token)
+        # Anything the session must pass on to what it spawns — the plugin's
+        # SessionStart hook inherits this environment.
+        self.overrides.update(extra_env or {})
         self.pid = None
         self.registry_file = None
         self.socket_path = None
