@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "ccx": {
+      "command": "python3",
+      "args": ["-m", "ccx.mcp"],
+      "cwd": "${CLAUDE_PLUGIN_ROOT}",
+      "env": {
+        "PYTHONPATH": "${CLAUDE_PLUGIN_ROOT}"
+      }
+    }
+  }
+}

@@ -35,6 +35,12 @@ def sessions_dir():
     return os.path.join(config_dir(), "sessions")
 
 
+def runtime_dir():
+    """The base directory Claude derives its runtime paths from."""
+    base = os.environ.get("CLAUDE_CODE_TMPDIR") or os.environ.get("XDG_RUNTIME_DIR")
+    return base or "/tmp"
+
+
 def socket_dir():
     """Where Claude puts `cc-socks/`.
 
@@ -42,8 +48,7 @@ def socket_dir():
     literally /tmp and not $TMPDIR, confirmed against live sessions whose TMPDIR
     pointed at /var/folders/… while their sockets sat in /tmp/cc-socks.
     """
-    base = os.environ.get("CLAUDE_CODE_TMPDIR") or os.environ.get("XDG_RUNTIME_DIR")
-    return os.path.join(base or "/tmp", "cc-socks")
+    return os.path.join(runtime_dir(), "cc-socks")
 
 
 def socket_path(pid):

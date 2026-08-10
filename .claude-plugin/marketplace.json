@@ -1,0 +1,20 @@
+{
+  "name": "ccx",
+  "description": "Cross-harness peer messaging between Codex threads and Claude Code sessions",
+  "owner": {
+    "name": "Tomer Hamam",
+    "email": "tomerhamam@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "ccx",
+      "description": "Make Codex threads and Claude Code sessions first-class message peers. Adds peers_list and peer_send on the Codex side, and keeps the bridge daemon alive on the Claude side.",
+      "version": "0.1.0",
+      "source": "./",
+      "author": {
+        "name": "Tomer Hamam",
+        "email": "tomerhamam@gmail.com"
+      }
+    }
+  ]
+}

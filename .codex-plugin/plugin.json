@@ -1,0 +1,22 @@
+{
+  "name": "ccx",
+  "version": "0.1.0",
+  "description": "Message peers across harnesses: Codex threads and Claude Code sessions address each other by name, in both directions.",
+  "author": {
+    "name": "Tomer Hamam"
+  },
+  "repository": "https://github.com/thamam/ccx",
+  "keywords": [
+    "codex",
+    "claude-code",
+    "messaging",
+    "cross-session",
+    "interop"
+  ],
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "ccx",
+    "shortDescription": "Message Claude Code sessions from Codex",
+    "category": "Developer Tools"
+  }
+}

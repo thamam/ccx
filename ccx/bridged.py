@@ -10,6 +10,7 @@ filename, the `pid` field and the socket name must agree.
 """
 
 import argparse
+import fcntl
 import os
 import signal
 import subprocess
@@ -42,11 +43,22 @@ class Bridge:
         self.stubs = {}  # thread_id -> Popen
         self.started_daemon = False
         self.client = None
+        self._lock = None
         self._stop = False
 
     # -- lifecycle -------------------------------------------------------
 
     def run(self):
+        # Two bridges over one registry means two stubs per Codex thread, and
+        # the user sees every peer twice. The lock lives here rather than in the
+        # SessionStart hook because a hook cannot win a race against itself.
+        self._lock = open(_lock_path(), "w")
+        try:
+            fcntl.flock(self._lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            self._log("another ccx daemon already owns this registry; exiting")
+            return 0
+
         for sig in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
             signal.signal(sig, self._on_signal)
         self.started_daemon = codexrpc.daemon_start(self.codex_home)
@@ -136,6 +148,13 @@ class Bridge:
     def _log(self, line):
         if self.verbose:
             print(f"[ccx daemon] {line}", file=sys.stderr, flush=True)
+
+
+def _lock_path():
+    """Scoped to the registry this bridge serves, so a scratch run and the
+    user's own daemon never contend."""
+    key = claudereg.config_dir().replace(os.sep, "_").strip("_")
+    return os.path.join(claudereg.runtime_dir(), f"ccx-daemon-{key}.lock")
 
 
 def _package_root():

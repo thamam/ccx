@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "ccx": {
+      "title": "ccx",
+      "description": "List and message Claude Code sessions running on this machine.",
+      "cwd": ".",
+      "command": "python3",
+      "args": ["-m", "ccx.mcp"]
+    }
+  }
+}

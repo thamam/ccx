@@ -1,0 +1,19 @@
+{
+  "name": "ccx",
+  "interface": {
+    "displayName": "ccx"
+  },
+  "plugins": [
+    {
+      "name": "ccx",
+      "source": {
+        "source": "url",
+        "url": "./"
+      },
+      "policy": {
+        "installation": "AVAILABLE"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}
