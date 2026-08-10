@@ -1,12 +1,14 @@
 """M7 — install ccx the way a user does, and prove the install works.
 
 Two `plugin marketplace add` + `plugin install` runs, one per harness, into
-scratch homes. Then the two things that make the install real:
+scratch homes. The two sides get deliberately different things, and the
+scenario asserts both halves of that:
 
-- Codex: the app-server has actually negotiated `peers_list` and `peer_send`.
-  That proves the plugin's `.mcp.json` was resolved, the server launched, and
-  it initialized — none of which a manifest-parses check would catch.
-- Claude: the SessionStart hook alone brings the bridge up. Nothing in the
+- Codex gets the MCP server. The app-server must have actually negotiated
+  `peers_list` and `peer_send` — that proves the plugin's `.mcp.json` was
+  resolved, the server launched and it initialized, none of which a
+  manifest-parses check would catch.
+- Claude gets the SessionStart hook and *no* MCP server. Nothing in the
   scenario starts `ccx daemon`; if a stub appears for the Codex thread, the
   hook did its job.
 
@@ -14,7 +16,12 @@ An install path that is not exercised is not shipped.
 """
 
 from ..codex import CodexHome, CodexTui
-from ..plugin import codex_mcp_tools, install_into_claude, install_into_codex
+from ..plugin import (
+    claude_plugin_inventory,
+    codex_mcp_tools,
+    install_into_claude,
+    install_into_codex,
+)
 from ..session import ClaudeSession
 
 EXPECTED_TOOLS = ["peer_send", "peers_list"]
@@ -36,6 +43,20 @@ def run(ctx):
 
     # -- Claude side -----------------------------------------------------
     install_into_claude(scratch)
+
+    # The Claude side ships the hook and nothing else. It deliberately does NOT
+    # register the MCP server: peers_list would duplicate ListAgents, and
+    # peer_send can only ever fail there, because a Claude tools/call carries no
+    # x-codex-turn-metadata for ccx to read a reply address from. A tool that
+    # exists only to error is worse than an absent one.
+    inventory = claude_plugin_inventory(scratch)
+    assert "Hooks (1)" in inventory and "SessionStart" in inventory, (
+        f"the Claude plugin did not install its SessionStart hook:\n{inventory}"
+    )
+    assert "MCP servers (0)" in inventory, (
+        "the Claude plugin registered an MCP server; peer_send cannot work from "
+        f"a Claude session and must not be offered there:\n{inventory}"
+    )
 
     # The session inherits CODEX_HOME so the hook's daemon watches the scratch
     # app-server rather than the user's. Nothing else starts the bridge.

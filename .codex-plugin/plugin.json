@@ -13,7 +13,7 @@
     "cross-session",
     "interop"
   ],
-  "mcpServers": "./.mcp.json",
+  "mcpServers": "./.codex-plugin/mcp.json",
   "interface": {
     "displayName": "ccx",
     "shortDescription": "Message Claude Code sessions from Codex",

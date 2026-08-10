@@ -37,15 +37,22 @@ claude plugin marketplace add thamam/ccx
 claude plugin install ccx@ccx
 ```
 
-The two harnesses read different manifests, so the repo ships both:
-`.claude-plugin/plugin.json` → `mcp-config.json` (using `${CLAUDE_PLUGIN_ROOT}`),
-and `.codex-plugin/plugin.json` → `.mcp.json` (using paths relative to the
-plugin root). They are not interchangeable.
+**The two sides install different things, on purpose.**
 
-On the Claude side the plugin installs one `SessionStart` hook and nothing else
-— Claude needs no ccx code, only the daemon alive. The hook is idempotent, runs
-in about 40 ms, and if `python3` is missing it logs to
-`$TMPDIR/ccx-daemon.log` and lets the session open normally.
+Codex gets the MCP server — that is where `peers_list` and `peer_send` are
+needed. Claude gets one `SessionStart` hook and no MCP server at all: Claude
+already has `ListAgents` and `SendMessage`, and `peer_send` could only ever
+fail from a Claude session, because a Claude `tools/call` carries no Codex
+thread metadata for ccx to derive a reply address from. A tool that exists only
+to error is worse than an absent one.
+
+The hook is idempotent, runs in about 40 ms, and if `python3` is missing it
+logs to `$TMPDIR/ccx-daemon.log` and lets the session open normally.
+
+The harnesses also read different manifests, so the repo ships both:
+`.claude-plugin/plugin.json` (hook only) and `.codex-plugin/plugin.json` →
+`.mcp.json`, whose paths are relative to the plugin root. Codex does **not**
+substitute `${CLAUDE_PLUGIN_ROOT}`; the two formats are not interchangeable.
 
 **Contributor install** — for working on ccx itself, or to get the `ccx` command
 on your `PATH`:
@@ -89,14 +96,15 @@ app-server daemon, so with the daemon up, `thread/loaded/list` returns zero
 threads while the app is running. ccx can neither see nor reach desktop
 sessions. This is the terminal `codex` CLI only.
 
-From a Codex session:
+From a Codex session, the two tools the plugin adds:
 
 - `peers_list` — the Claude sessions you can reach, with their addresses
 - `peer_send(to, message, summary)` — send to one
 
-From a Claude session: `ListAgents` and `SendMessage`, unchanged. Codex peers
-are named `codex-<cwd>-<thread>` and stamped `from-name="codex:<thread>"` so
-you can tell you are not talking to another Claude session.
+From a Claude session: `ListAgents` and `SendMessage`, unchanged — ccx adds no
+tools there and none are needed. Codex peers are named `codex-<cwd>-<thread>`
+and stamped `from-name="codex:<thread>"`, so you can tell you are not talking
+to another Claude session.
 
 ## When something stops working
 
@@ -145,7 +153,7 @@ when it is killed mid-run.
 | `m4-receipts` | a held message reports `HELD`, then `DELIVERED`, into the Codex thread |
 | `m5-hardening` | doctor agrees with reality; an unreachable peer errors |
 | `m6-conversation` | a three-message conversation in both directions, addressed only by received addresses |
-| `m7-plugin-install` | a real marketplace install on both harnesses brings ccx up by itself |
+| `m7-plugin-install` | a real install: Codex gets the MCP tools, Claude gets only the hook, and the hook alone brings the bridge up |
 
 ## What this is not
 

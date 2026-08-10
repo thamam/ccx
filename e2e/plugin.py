@@ -48,7 +48,7 @@ def install_into_codex(home):
     # Codex clones committed HEAD. If the manifests are not committed, the
     # install silently lacks them and the MCP server never appears — so say so
     # here rather than letting the tool-surface assertion fail mysteriously.
-    for required in (".codex-plugin/plugin.json", ".mcp.json"):
+    for required in (".codex-plugin/plugin.json", ".codex-plugin/mcp.json"):
         assert os.path.exists(os.path.join(root, required)), (
             f"{required} is missing from the installed plugin at {root}. "
             "Codex installs committed git HEAD — commit the plugin manifests "
@@ -73,6 +73,19 @@ def install_into_claude(scratch):
     with open(installed) as f:
         assert "ccx" in json.dumps(json.load(f)), "ccx is not in installed_plugins.json"
     return _claude_plugin_root(scratch)
+
+
+def claude_plugin_inventory(scratch):
+    """`claude plugin details` — the harness's own view of what got installed.
+
+    Used to assert what is NOT there as well as what is: the Claude side must
+    install the hook and no MCP server.
+    """
+    env = {k: v for k, v in os.environ.items() if k not in scratch_mod.ENV_DENY}
+    env["CLAUDE_CONFIG_DIR"] = scratch.config
+    return _run(
+        ["claude", "plugin", "details", PLUGIN], env, "claude plugin details"
+    )
 
 
 def _claude_plugin_root(scratch):
