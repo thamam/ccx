@@ -185,8 +185,10 @@ def real_snapshot():
 def diff_snapshot(before, after):
     """Additions only — the user's own sessions come and go independently."""
     added = {}
-    for key in before:
-        new = sorted(set(after.get(key, [])) - set(before[key]))
+    for key, was in before.items():
+        if not isinstance(was, list):
+            continue  # non-listing entries are compared by their own checks
+        new = sorted(set(after.get(key, [])) - set(was))
         if new:
             added[key] = new
     return added

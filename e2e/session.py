@@ -28,6 +28,13 @@ def _reap_all():
         _live.pop().stop(quiet=True)
 
 
+def register_cleanup(obj):
+    """Anything with .stop(quiet=…) gets torn down on exit, failure or signal."""
+    _install_hooks()
+    _live.append(obj)
+    return obj
+
+
 def _install_hooks():
     global _hooked
     if _hooked:
@@ -73,14 +80,13 @@ class ClaudeSession:
     # -- lifecycle -------------------------------------------------------
 
     def start(self, timeout=60, need_socket=True):
-        _install_hooks()
         subprocess.run(
             ["tmux", "kill-session", "-t", self.tmux_name],
             capture_output=True,
         )
         cmd = self._command()
+        register_cleanup(self)
         tmux("new-session", "-d", "-s", self.tmux_name, "-c", self.cwd, cmd)
-        _live.append(self)
         self._await_registration(timeout, need_socket)
         return self
 

@@ -5,9 +5,11 @@ the user's real surfaces. A scenario that leaves anything behind fails, even if
 its own assertions passed.
 """
 
+import os
 import time
 import traceback
 
+from ccx import codexrpc
 from . import creds, scratch as scratch_mod
 from .scenarios import SCENARIOS
 
@@ -33,6 +35,7 @@ def run(only=None, keep=False):
     for scenario in selected:
         print(f"\n=== {scenario.name} — {scenario.summary}")
         before = scratch_mod.real_snapshot()
+        before["codex"] = _codex_snapshot()
         scratch = scratch_mod.Scratch().create()
         started = time.time()
         try:
@@ -65,6 +68,17 @@ def _assert_clean(scratch, before):
     added = scratch_mod.diff_snapshot(before, scratch_mod.real_snapshot())
     if added:
         raise AssertionError(f"leaked into the user's real environment: {added}")
+    now = _codex_snapshot()
+    if now != before["codex"]:
+        raise AssertionError(
+            f"the user's Codex daemon state changed: {before['codex']} -> {now}. "
+            "The harness must never start or stop a daemon it does not own."
+        )
+
+
+def _codex_snapshot():
+    """Whether the *user's* app-server daemon is up. Must not change across a run."""
+    return os.path.exists(codexrpc.CONTROL_SOCK)
 
 
 def _indent(text, prefix="    "):
