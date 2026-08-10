@@ -109,6 +109,7 @@ when it is killed mid-run.
 | `m3-round-trip` | Codex → Claude → back into the *same* Codex thread |
 | `m4-receipts` | a held message reports `HELD`, then `DELIVERED`, into the Codex thread |
 | `m5-hardening` | doctor agrees with reality; an unreachable peer errors |
+| `m6-conversation` | a three-message conversation in both directions, addressed only by received addresses |
 
 ## What this is not
 

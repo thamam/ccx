@@ -9,6 +9,7 @@ from . import (
     m3_round_trip,
     m4_receipts,
     m5_hardening,
+    m6_conversation,
 )
 
 Scenario = namedtuple("Scenario", "name summary run")
@@ -43,5 +44,10 @@ SCENARIOS = [
         "m5-hardening",
         "doctor agrees with reality and an unreachable peer errors, not succeeds",
         m5_hardening.run,
+    ),
+    Scenario(
+        "m6-conversation",
+        "the definition of done: a multi-turn conversation in both directions",
+        m6_conversation.run,
     ),
 ]
