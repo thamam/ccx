@@ -14,6 +14,7 @@ neither the user's plugin config nor their caches are touched.
 import json
 import os
 import subprocess
+import time
 
 from . import scratch as scratch_mod
 
@@ -54,7 +55,43 @@ def install_into_codex(home):
             "Codex installs committed git HEAD — commit the plugin manifests "
             "before running this."
         )
+    wait_quiescent(home.root)
     return root
+
+
+def wait_quiescent(root, stable_for=3.0, timeout=60.0):
+    """Block until nothing under `root` has changed for `stable_for` seconds.
+
+    `codex plugin marketplace add` / `plugin add` kick off a background fetch of
+    the remote plugin catalog. It keeps writing under CODEX_HOME after the
+    command returns — after teardown, and even after the harness process exits,
+    which is a race no amount of deleting can win. So the install waits for the
+    background work to finish instead of racing it.
+    """
+    deadline = time.time() + timeout
+    last, since = None, time.time()
+    while time.time() < deadline:
+        snapshot = _tree_signature(root)
+        if snapshot != last:
+            last, since = snapshot, time.time()
+        elif time.time() - since >= stable_for:
+            return True
+        time.sleep(0.5)
+    return False
+
+
+def _tree_signature(root):
+    out = []
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames.sort()
+        for name in sorted(filenames):
+            path = os.path.join(dirpath, name)
+            try:
+                stat = os.stat(path)
+                out.append((path, stat.st_size, stat.st_mtime_ns))
+            except OSError:
+                pass
+    return out
 
 
 def install_into_claude(scratch):

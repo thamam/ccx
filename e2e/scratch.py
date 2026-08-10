@@ -18,13 +18,21 @@ before the trust check, so seeding `/tmp/x` while Claude looks up
 `/private/tmp/x` re-triggers the trust dialog.
 """
 
+import glob
 import json
 import os
 import shutil
+import time
 
 # Real config dir surfaces the harness must never touch.
 REAL_SESSIONS = os.path.expanduser("~/.claude/sessions")
 REAL_SOCKS = "/tmp/cc-socks"
+
+# Every scratch root the harness creates shares this prefix, so one glob covers
+# the Claude scratch, the Codex home, and anything added later. The guarantee
+# is "leaves nothing behind" — an empty directory still breaks it, and an
+# assertion that cannot see its own roots is the part that actually matters.
+SCRATCH_GLOB = "/private/tmp/ccx-e2e*"
 
 # Inherited from a parent Claude session; poisons the child if left in place.
 ENV_DENY = (
@@ -172,6 +180,38 @@ def _listdir(path):
         return os.listdir(path)
     except OSError:
         return []
+
+
+def remove_settled(root, quiet=False, settle=8.0):
+    """Remove a tree and keep it removed.
+
+    `codex app-server daemon stop` returns before the process has finished, and
+    the departing process writes cache/remote_plugin_catalog under CODEX_HOME
+    afterwards. Deleting once loses that race and the directory reappears a
+    second later, which is how "leaves nothing behind" quietly stops being true.
+
+    Detecting the writer by command line was tried first and is worse: it
+    matches any command that merely mentions the path, including the `ps` used
+    to look for it.
+    """
+    deadline = time.time() + settle
+    shutil.rmtree(root, ignore_errors=True)
+    stable_since = time.time()
+    while time.time() < deadline:
+        if os.path.exists(root):
+            shutil.rmtree(root, ignore_errors=True)
+            stable_since = time.time()
+        elif time.time() - stable_since > 2.0:
+            return True
+        time.sleep(0.25)
+    if os.path.exists(root) and not quiet:
+        print(f"  ! {root} keeps being recreated; something is still writing")
+    return not os.path.exists(root)
+
+
+
+def surviving_roots():
+    return sorted(glob.glob(SCRATCH_GLOB))
 
 
 def real_snapshot():

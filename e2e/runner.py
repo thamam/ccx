@@ -41,16 +41,27 @@ def run(only=None, keep=False):
         try:
             scenario.run(Context(scratch, token))
             _assert_clean(scratch, before)
+            if not keep:
+                # Teardown is part of the scenario's verdict, not an epilogue:
+                # "leaves nothing behind" is a guarantee the suite makes, so an
+                # empty scratch root that outlives the run is a failure.
+                scratch.destroy()
+                surviving = scratch_mod.surviving_roots()
+                if surviving:
+                    raise AssertionError(f"scratch roots survived teardown: {surviving}")
             print(f"--- PASS {scenario.name} ({time.time() - started:.1f}s)")
         except Exception as exc:  # noqa: BLE001 — a scenario may fail any way
             failures.append((scenario.name, exc))
             print(f"--- FAIL {scenario.name} ({time.time() - started:.1f}s)")
             print(_indent(traceback.format_exc()))
         finally:
-            if not keep:
-                scratch.destroy()
-            else:
+            if keep:
                 print(f"    (kept scratch at {scratch.root})")
+            else:
+                scratch.destroy()
+
+    if not keep:
+        _final_sweep(failures)
 
     print()
     if failures:
@@ -58,6 +69,28 @@ def run(only=None, keep=False):
         return 1
     print(f"PASSED {len(selected)}/{len(selected)}")
     return 0
+
+
+def _final_sweep(failures, settle=25.0):
+    """The guarantee is per *run*, so it is settled and checked once at the end.
+
+    `codex plugin …` kicks off a background remote-catalog fetch that writes
+    into CODEX_HOME well after the scenario has torn down — sometimes after the
+    whole suite. Each scenario still asserts its own cleanliness; this makes the
+    end state deterministic rather than a race against a detached writer.
+    """
+    surviving = scratch_mod.surviving_roots()
+    if not surviving:
+        return
+    print(f"\n--- sweeping late scratch roots: {surviving}")
+    for root in surviving:
+        scratch_mod.remove_settled(root, settle=settle)
+    still = scratch_mod.surviving_roots()
+    if still:
+        failures.append(
+            ("final-sweep", AssertionError(f"scratch roots survived the run: {still}"))
+        )
+        print(f"--- FAIL final-sweep: {still}")
 
 
 def _assert_clean(scratch, before):

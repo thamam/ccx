@@ -15,10 +15,11 @@ with a known-empty tool surface; scenarios add back exactly what they need.
 import os
 import re
 import shutil
+import signal
 import subprocess
 import time
 
-from . import session as session_mod
+from . import scratch as scratch_mod, session as session_mod
 from ccx import codexrpc
 
 REAL_CODEX_HOME = os.path.expanduser("~/.codex")
@@ -112,8 +113,13 @@ class CodexHome:
             except subprocess.TimeoutExpired:
                 if not quiet:
                     print("  ! `codex app-server daemon stop` hung; killing the pid")
-                codexrpc.daemon_kill(self.root)
-        shutil.rmtree(self.root, ignore_errors=True)
+                # A SIGTERMed app-server keeps flushing its cache under
+                # CODEX_HOME on the way out, and those writes land after any
+                # fixed settle window — so wait for the pids to actually die
+                # before deleting the tree. Waiting on pids is exact; matching
+                # command lines is not.
+                _await_pids(codexrpc.daemon_kill(self.root), quiet=quiet)
+        scratch_mod.remove_settled(self.root, quiet=quiet)
         return {}
 
 
@@ -127,6 +133,35 @@ def _strip_mcp_servers(text):
         if not skipping:
             out.append(line)
     return "".join(out)
+
+
+def _await_pids(pids, quiet=False, timeout=15.0):
+    """Block until every pid is gone, escalating to SIGKILL near the deadline."""
+    deadline = time.time() + timeout
+    escalated = False
+    while time.time() < deadline:
+        alive = [p for p in pids if _alive(p)]
+        if not alive:
+            return True
+        if not escalated and time.time() > deadline - 5:
+            escalated = True
+            for pid in alive:
+                try:
+                    os.kill(pid, signal.SIGKILL)
+                except OSError:
+                    pass
+        time.sleep(0.25)
+    if not quiet:
+        print(f"  ! pids {[p for p in pids if _alive(p)]} would not exit")
+    return False
+
+
+def _alive(pid):
+    try:
+        os.kill(pid, 0)
+        return True
+    except OSError:
+        return False
 
 
 class CodexTui:
