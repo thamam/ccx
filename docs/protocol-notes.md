@@ -181,6 +181,16 @@ Envelope rules:
   bypasses prompts." Anything unattended must attest, or set
   `crossSessionInbound: "accept"` on the receiving session.
 - `hop-chain` is a comma list of 24-hex ids, max 32 — loop prevention.
+- **Unknown attributes are not ignored; they void the envelope.** Verified
+  2026-08-11 by adding `from-harness="codex"`: the receiver failed its
+  round-trip check, discarded *all* metadata, and delivered the raw
+  `<cross-session-message …>` text as the message body. `from-mode` went with
+  it, so the message was then held for approval as unattested. Do not add
+  attributes outside the five above, however harmless they look.
+- The receiving model is told, in the content, **"Another Claude session sent a
+  message:"** before the envelope. No attribute outranks that sentence: a peer
+  stamped `from-name="codex:…"` is still described by the model as another
+  Claude session. Provenance has to be stated in the body to land.
 - `priority`: `next` (normal) or `now` (jumps the queue, bypasses ordering).
 - `msgV` is 1.
 

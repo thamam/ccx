@@ -14,6 +14,7 @@ from . import (
     m8_codex_to_codex,
     m9_chosen_names,
     m10_loop_bounded,
+    m11_provenance,
 )
 
 Scenario = namedtuple("Scenario", "name summary run")
@@ -73,5 +74,10 @@ SCENARIOS = [
         "m10-loop-bounded",
         "two agents that acknowledge on sight stop instead of ping-ponging forever",
         m10_loop_bounded.run,
+    ),
+    Scenario(
+        "m11-provenance",
+        "the receiving Claude session knows the sender is Codex, not Claude",
+        m11_provenance.run,
     ),
 ]

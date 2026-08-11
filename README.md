@@ -180,5 +180,13 @@ the same posture Claude already uses.
 What it does add is **reach**: a Codex session can now type into a Claude
 session. That is the feature, and it is also the risk. A Codex peer sits
 entirely outside Claude's permission model, which is why messages carry an
-honest `from-mode` attestation and why the sender is stamped as Codex rather
-than left to read as another Claude session.
+honest `from-mode` attestation and say in the body that they come from Codex.
+
+That last part is not decoration. Claude Code prefixes every inbound peer
+message with "Another Claude session sent a message" regardless of who sent it,
+and no envelope attribute outranks a sentence in the prompt — a rehearsal had a
+Claude session read a correctly stamped message and describe it as coming from
+another Claude session. So ccx states the provenance in the message body and
+names that framing as inaccurate. `m11-provenance` asserts what the receiving
+model *says*, because the envelope was already right when the outcome was
+wrong.

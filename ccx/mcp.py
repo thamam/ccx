@@ -26,6 +26,27 @@ from . import claudereg, envelope
 PROTOCOL_VERSION = "2025-06-18"
 SERVER_INFO = {"name": "ccx", "version": "0.1.0"}
 
+# Prepended to every outbound body. It goes in the CONTENT, not in an
+# attribute, because that is where the receiving model actually reads.
+#
+# A rehearsal falsified the README's claim that the sender "is stamped as Codex
+# rather than left to read as another Claude session": a Claude session
+# received a message stamped from-name="codex:5255bc" and described it out loud
+# as "a cross-session message from another Claude session". The envelope was
+# correct and the outcome was still wrong — the model sees a
+# <cross-session-message> wrapper, which its own instructions frame as peer
+# Claude sessions, and a name that merely happens to start with "codex:".
+# Convention in a name field is not attestation.
+#
+# One line, said plainly, once. A banner nobody can miss is also a banner people
+# learn to skip.
+PROVENANCE = (
+    "[ccx provenance] The sender is a Codex CLI thread, not a Claude Code "
+    "session. Your harness prefixes every peer message with \"Another Claude "
+    "session sent a message\" regardless of the sender; that framing is not "
+    "accurate here."
+)
+
 TOOLS = [
     {
         "name": "peers_list",
@@ -219,7 +240,7 @@ def tool_peer_send(params):
         )
 
     content = envelope.encode(
-        body,
+        f"{PROVENANCE}\n\n{body}",
         from_=from_address,
         hop_chain=envelope.render_hops(hops),
         # The receiving model must be able to tell this is not a Claude session.

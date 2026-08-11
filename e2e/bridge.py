@@ -41,11 +41,16 @@ class Daemon:
         return self
 
     def stubs(self):
-        """Scratch registry entries the bridge owns, by name."""
+        """Scratch registry entries the bridge owns, by name.
+
+        Identified by the ccxStub flag, not a name prefix: once `--name` made
+        peer names chooseable, `codex-…` stopped being a reliable marker and a
+        stub called `prov` was invisible here.
+        """
         return {
             e["name"]: e
             for e in self.scratch.registry().values()
-            if str(e.get("name", "")).startswith("codex-")
+            if e.get("ccxStub")
         }
 
     def wait_for_stub(self, timeout=30):
