@@ -3,6 +3,12 @@
 Everything here was confirmed by running it on this machine on 2026-08-10 against
 **Claude Code 2.1.226** and **codex-cli 0.146.1** (macOS, arm64).
 
+**2026-08-11, Claude Code 2.1.227:** all four `ccx doctor` contracts still pass
+(socket write, registry visibility, Codex daemon RPC, MCP `_meta` shape), and
+so does the m0 isolation scenario — registration, socket binding and the
+`tengu_harbor_kite` gate are unchanged. The wire details below were **not**
+re-derived against .227; only that they still hold.
+
 Do **not** re-derive these by disassembling binaries. If something here stops
 matching reality, that is a version-drift bug — fix `ccx doctor`, don't go
 spelunking again.
