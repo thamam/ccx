@@ -11,6 +11,7 @@ from . import (
     m5_hardening,
     m6_conversation,
     m7_plugin_install,
+    m8_codex_to_codex,
 )
 
 Scenario = namedtuple("Scenario", "name summary run")
@@ -55,5 +56,10 @@ SCENARIOS = [
         "m7-plugin-install",
         "a real marketplace install on both harnesses brings ccx up by itself",
         m7_plugin_install.run,
+    ),
+    Scenario(
+        "m8-codex-to-codex",
+        "two Codex threads discover each other and hold a round trip",
+        m8_codex_to_codex.run,
     ),
 ]

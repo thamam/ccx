@@ -210,12 +210,19 @@ class Stub:
 
         The reply address is carried in the text because Codex has no envelope
         of its own — the agent reads it and passes it back to `peer_send`.
+
+        The sender's kind is derived from `from-name`, never assumed. Codex
+        threads message each other through these same stubs, so a fixed "from a
+        Claude Code peer" label would be a lie half the time — and a model that
+        believes it is talking to Claude when it is talking to Codex will
+        misjudge what the other side can do.
         """
         sender = attrs.get("from") or msg.get("from") or "unknown"
         name = attrs.get("from-name")
+        kind = "Codex" if (name or "").startswith("codex:") else "Claude Code"
         who = f"{name} ({sender})" if name else sender
         return (
-            f"[message from Claude Code peer {who}]\n\n{body}\n\n"
+            f"[message from {kind} peer {who}]\n\n{body}\n\n"
             f"To reply, call the ccx tool `peer_send` with to={sender!r}."
         )
 

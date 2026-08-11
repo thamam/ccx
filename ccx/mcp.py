@@ -1,4 +1,4 @@
-"""`ccx mcp` — the stdio MCP server Codex agents use to reach Claude sessions.
+"""`ccx mcp` — the stdio MCP server Codex agents use to reach their peers.
 
 Registered once (`codex mcp add ccx -- ccx mcp`) and shared by every thread.
 That works because every `tools/call` carries the caller's identity in
@@ -8,8 +8,12 @@ asking and stamp the right reply address without per-thread config.
 Two verbs, deliberately: `peers_list` and `peer_send`.
 
 The reply address is the calling thread's own stub socket — the same address
-Claude would use to reach that thread. So a Claude session replies by copying
+anyone else would use to reach that thread. So a recipient replies by copying
 `from` into `to`, and there is no routing table anywhere in the system.
+
+Peers are Claude sessions *and* other Codex threads: a Codex thread is reachable
+through its stub like anything else, so codex-to-codex needs no extra transport,
+only discovery.
 """
 
 import json
@@ -26,16 +30,19 @@ TOOLS = [
     {
         "name": "peers_list",
         "description": (
-            "List Claude Code sessions on this machine that can be messaged. "
-            "Returns each peer's name, working directory, status and address. "
-            "Pass the address to peer_send."
+            "List the agent sessions on this machine you can message: Claude "
+            "Code sessions and other Codex threads. Each peer is tagged with "
+            "its kind (claude or codex) alongside its working directory, "
+            "status and address. You are never listed as your own peer. Pass a "
+            "name or an address to peer_send."
         ),
         "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
     },
     {
         "name": "peer_send",
         "description": (
-            "Send a message to a Claude Code session. `to` is an address from "
+            "Send a message to another agent session — a Claude Code session "
+            "or another Codex thread. `to` is a name or address from "
             "peers_list, or the `from` address of a message you received. The "
             "reply comes back into this Codex thread."
         ),
@@ -44,7 +51,10 @@ TOOLS = [
             "properties": {
                 "to": {
                     "type": "string",
-                    "description": "Peer address (uds:/path/to.sock) or peer name",
+                    "description": (
+                        "Peer name from peers_list, or an address "
+                        "(uds:/path/to.sock)"
+                    ),
                 },
                 "message": {"type": "string", "description": "Message body"},
                 "summary": {
@@ -106,17 +116,27 @@ def reply_address(thread_id):
     return claudereg.address(stub["messagingSocketPath"])
 
 
-def peers():
-    """Live Claude sessions, excluding the stubs we own."""
+def peers(exclude_thread=None):
+    """Every reachable peer: Claude sessions and other Codex threads alike.
+
+    Codex threads are peers through their stubs, so listing stubs is what makes
+    codex-to-codex discoverable. Sending across always worked — `resolve` takes
+    a raw address and the stub injects whatever arrives — but without discovery
+    it was not a feature anyone could use.
+
+    `exclude_thread` drops the caller's own stub, and only that one. A thread
+    that can address itself will eventually loop a turn back into itself.
+    """
     out = []
     for entry in claudereg.read_all().values():
-        if entry.get("ccxStub"):
+        if exclude_thread and entry.get("ccxThreadId") == exclude_thread:
             continue
         if not claudereg.reachable(entry):
             continue
         out.append(
             {
                 "name": entry.get("name"),
+                "kind": "codex" if entry.get("ccxStub") else "claude",
                 "cwd": entry.get("cwd"),
                 "status": entry.get("status"),
                 "address": claudereg.address(entry["messagingSocketPath"]),
@@ -125,16 +145,19 @@ def peers():
     return sorted(out, key=lambda p: p["name"] or "")
 
 
-def resolve(to):
+def resolve(to, exclude_thread=None):
     """Accept an address or a peer name; return a socket path."""
     if to.startswith("uds:"):
         return to[4:]
     if to.startswith("/"):
         return to
-    matches = [p for p in peers() if p["name"] == to]
+    known = peers(exclude_thread=exclude_thread)
+    matches = [p for p in known if p["name"] == to]
     if not matches:
-        known = [p["name"] for p in peers()]
-        raise McpError(f"no peer named {to!r}. Known peers: {known or '(none)'}")
+        raise McpError(
+            f"no peer named {to!r}. Known peers: "
+            f"{[p['name'] for p in known] or '(none)'}"
+        )
     if len(matches) > 1:
         raise McpError(f"{to!r} is ambiguous — use the address instead of the name")
     return matches[0]["address"][4:]
@@ -146,13 +169,26 @@ def resolve(to):
 
 
 def tool_peers_list(params):
-    found = peers()
+    # Lenient about identity, unlike peer_send: without a thread id we simply
+    # cannot leave the caller out of its own listing. That is worth a caveat,
+    # not a refusal — only peer_send genuinely cannot proceed without an id.
+    try:
+        caller, _ = caller_thread(params)
+    except McpError:
+        caller = None
+
+    found = peers(exclude_thread=caller)
     if not found:
-        return "No Claude Code sessions are currently reachable."
+        return "No peers are currently reachable."
     lines = [
-        f"{p['name']} — {p['status']} — {p['cwd']}\n  address: {p['address']}"
+        f"{p['name']} [{p['kind']}] — {p['status']} — {p['cwd']}\n"
+        f"  address: {p['address']}"
         for p in found
     ]
+    if caller is None:
+        lines.append(
+            "\n(No caller thread id was supplied, so this list may include you.)"
+        )
     return "\n".join(lines)
 
 
@@ -164,7 +200,7 @@ def tool_peer_send(params):
     if not to or not body:
         raise McpError("peer_send needs both `to` and `message`")
 
-    target = resolve(to)
+    target = resolve(to, exclude_thread=thread_id)
     from_address = reply_address(thread_id)
     msg_id = str(uuid.uuid4())
 

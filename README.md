@@ -1,7 +1,8 @@
 # ccx
 
 Make **Codex threads and Claude Code sessions message each other** — by name,
-in both directions — without patching or wrapping either tool.
+in both directions, and Codex-to-Codex too — without patching or wrapping
+either tool.
 
 ```
 Claude session ──SendMessage──▶ stub socket ──turn/start──▶ Codex thread
@@ -98,8 +99,14 @@ sessions. This is the terminal `codex` CLI only.
 
 From a Codex session, the two tools the plugin adds:
 
-- `peers_list` — the Claude sessions you can reach, with their addresses
-- `peer_send(to, message, summary)` — send to one
+- `peers_list` — every session you can reach, each tagged `[claude]` or
+  `[codex]`, with its address. You are never listed as your own peer.
+- `peer_send(to, message, summary)` — send to one, by name or address
+
+**Codex threads are peers too.** They become addressable through exactly the
+same stubs, so two Codex sessions can hold a conversation with each other, and
+an incoming message says which kind of peer it came from rather than assuming
+Claude.
 
 From a Claude session: `ListAgents` and `SendMessage`, unchanged — ccx adds no
 tools there and none are needed. Codex peers are named `codex-<cwd>-<thread>`
@@ -154,6 +161,7 @@ when it is killed mid-run.
 | `m5-hardening` | doctor agrees with reality; an unreachable peer errors |
 | `m6-conversation` | a three-message conversation in both directions, addressed only by received addresses |
 | `m7-plugin-install` | a real install: Codex gets the MCP tools, Claude gets only the hook, and the hook alone brings the bridge up |
+| `m8-codex-to-codex` | two Codex threads discover each other, message both ways, and neither can address itself |
 
 ## What this is not
 
