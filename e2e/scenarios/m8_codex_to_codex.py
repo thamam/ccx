@@ -10,9 +10,11 @@ The round trip is the same shape as m3, with Codex on both ends:
     codex A --1--> codex B     (peers_list, then peer_send by name)
     codex B --2--> codex A     (reply to the address it received)
 
-Two assertions here are about honesty rather than delivery: B must be told it
-is talking to a *Codex* peer and not a Claude one, and A must not be able to
-find itself in its own peer listing.
+Three assertions here are about honesty rather than delivery: B must be told it
+is talking to a *Codex* peer and not a Claude one, B must NOT receive the
+Claude-specific provenance correction (there is nothing to correct, and saying
+otherwise misdescribes its own harness), and A must not be able to find itself
+in its own peer listing.
 """
 
 import os
@@ -78,6 +80,16 @@ def run(ctx):
     assert "from Codex peer" in inbound, (
         "B was told it is talking to a Claude peer; the sender is a Codex "
         f"thread and the label must say so:\n{inbound[-800:]}"
+    )
+    # The provenance block corrects Claude's "Another Claude session sent a
+    # message" framing. Codex has no such framing, so sending the correction
+    # here would state a falsehood about the recipient's own harness — in the
+    # one place added to be honest about provenance. It shipped that way and a
+    # human found it in demo footage, because the original test asserted the leg
+    # we were worried about instead of every leg.
+    assert "[ccx provenance]" not in inbound, (
+        "the Claude-specific provenance correction was sent to a Codex thread, "
+        f"which is a false statement about its own harness:\n{inbound[-800:]}"
     )
 
     # Leg 2: B replies to the address it received, and it lands in A.

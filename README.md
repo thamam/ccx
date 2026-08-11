@@ -187,6 +187,8 @@ message with "Another Claude session sent a message" regardless of who sent it,
 and no envelope attribute outranks a sentence in the prompt — a rehearsal had a
 Claude session read a correctly stamped message and describe it as coming from
 another Claude session. So ccx states the provenance in the message body and
-names that framing as inaccurate. `m11-provenance` asserts what the receiving
+names that framing as inaccurate — but only when the recipient is a Claude
+session. A Codex thread has no such framing to correct, and telling it
+otherwise would be a false statement about its own harness. `m11-provenance` asserts what the receiving
 model *says*, because the envelope was already right when the outcome was
 wrong.

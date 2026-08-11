@@ -166,6 +166,19 @@ def peers(exclude_thread=None):
     return sorted(out, key=lambda p: p["name"] or "")
 
 
+def recipient_kind(sock_path):
+    """"codex", "claude", or None if this address is not in the registry.
+
+    Read from the registry entry rather than inferred from the peer's name:
+    names are chooseable now, so `Codex-TL` is a label a Claude session could
+    equally be given.
+    """
+    for entry in claudereg.read_all().values():
+        if entry.get("messagingSocketPath") == sock_path:
+            return "codex" if entry.get("ccxStub") else "claude"
+    return None
+
+
 def resolve(to, exclude_thread=None):
     """Accept an address or a peer name; return a socket path."""
     if to.startswith("uds:"):
@@ -239,8 +252,18 @@ def tool_peer_send(params):
             f"{envelope.HOP_LIMIT}. Something is relaying in a circle."
         )
 
+    # PROVENANCE corrects a Claude-specific behaviour: Claude's harness
+    # announces every peer message as coming from another Claude session, ahead
+    # of our envelope. Codex does no such thing — its stub already renders
+    # "[message from Codex peer codex:xxxxxx]" and nothing contradicts it. Sending
+    # the correction to a Codex thread states a falsehood about its own harness,
+    # in the one place added to be honest about provenance.
+    #
+    # Unknown recipients get it: being over-explicit to something not in the
+    # registry is the safe direction.
+    kind = recipient_kind(target)
     content = envelope.encode(
-        f"{PROVENANCE}\n\n{body}",
+        body if kind == "codex" else f"{PROVENANCE}\n\n{body}",
         from_=from_address,
         hop_chain=envelope.render_hops(hops),
         # The receiving model must be able to tell this is not a Claude session.
