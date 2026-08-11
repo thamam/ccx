@@ -53,6 +53,7 @@ class Bridge:
         self.poll = poll
         self.verbose = verbose
         self.stubs = {}  # thread_id -> Popen
+        self.names = {}  # thread_id -> the peer name we assigned it
         self.started_daemon = False
         self.client = None
         self._lock = None
@@ -121,14 +122,21 @@ class Bridge:
                 self._log(f"stub for {thread_id} exited ({proc.returncode})")
                 claudereg.remove(proc.pid)
                 del self.stubs[thread_id]
+                self.names.pop(thread_id, None)
 
     def _spawn(self, thread_id):
+        # Names already handed out this run count as taken even though the stub
+        # may not have written its registry file yet. Two threads that appear in
+        # the same poll cycle would otherwise both read an empty registry and
+        # claim the same name — which is the ambiguity this is here to prevent,
+        # arriving by a different door.
         taken = {
             entry.get("name")
             for entry in claudereg.read_all().values()
             if entry.get("name")
-        }
+        } | set(self.names.values())
         name = thread_name(self.client, thread_id, taken=taken)
+        self.names[thread_id] = name
         cmd = [
             sys.executable,
             "-m",
@@ -147,6 +155,7 @@ class Bridge:
         self._log(f"stub {proc.pid} -> {name} ({thread_id})")
 
     def _reap(self, thread_id):
+        self.names.pop(thread_id, None)
         proc = self.stubs.pop(thread_id, None)
         if proc is None:
             return

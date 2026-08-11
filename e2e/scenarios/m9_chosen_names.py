@@ -39,28 +39,42 @@ def run(ctx):
     vega = CodexTui(home, name="vega", thread_name="vega").start()
     orion = CodexTui(home, name="orion", thread_name="orion").start()
 
-    daemon = Daemon(scratch, home).start()
-    names = _wait_for_names(scratch, {vega.thread_id, orion.thread_id}, daemon)
+    # Both threads exist before the bridge does, so the bridge sees them in a
+    # single poll cycle. That is the case that matters: a stub registers
+    # asynchronously, so two threads claiming the same name in one pass would
+    # each read an empty registry and both take it. Found live, on screen.
+    twin = CodexTui(home, name="twin", thread_name="vega").start()
 
-    assert names[vega.thread_id] == "vega", (
-        f"chosen name was not honoured: {names[vega.thread_id]!r}"
+    daemon = Daemon(scratch, home).start()
+    names = _wait_for_names(
+        scratch, {vega.thread_id, orion.thread_id, twin.thread_id}, daemon
     )
+    assert len(set(names.values())) == 3, (
+        f"two threads were given the same peer name in one poll cycle: {names}"
+    )
+    assert sorted(names[t] for t in (vega.thread_id, twin.thread_id))[0] == "vega", (
+        f"neither same-cycle claimant kept the clean name: {names}"
+    )
+
     assert names[orion.thread_id] == "orion", (
         f"chosen name was not honoured: {names[orion.thread_id]!r}"
     )
 
     # Addressable by the chosen name, with nothing else to type.
     home.client().start_turn(
-        vega.thread_id,
-        f"Call the ccx MCP tool `peer_send` with to='orion' and message exactly: "
+        orion.thread_id,
+        f"Call the ccx MCP tool `peer_send` with to='vega' and message exactly: "
         f"{PING}. Then say DONE.",
     )
-    orion.wait_for(PING, timeout=180)
+    vega.wait_for(PING, timeout=180)
 
-    # The collision case: a third thread also claims `orion`.
+    # The other collision shape: a thread claiming a name already registered,
+    # arriving in a later poll cycle than the incumbent.
     clash = CodexTui(home, name="clash", thread_name="orion").start()
     all_names = _wait_for_names(
-        scratch, {vega.thread_id, orion.thread_id, clash.thread_id}, daemon
+        scratch,
+        {vega.thread_id, orion.thread_id, twin.thread_id, clash.thread_id},
+        daemon,
     )
     clash_name = all_names[clash.thread_id]
     assert clash_name != "orion", (
@@ -73,11 +87,12 @@ def run(ctx):
     assert all_names[orion.thread_id] == "orion", (
         "the first claimant lost its name to the second"
     )
-    assert len(set(all_names.values())) == 3, f"peer names are not unique: {all_names}"
+    assert len(set(all_names.values())) == 4, f"peer names are not unique: {all_names}"
 
     daemon.stop()
     vega.stop()
     orion.stop()
+    twin.stop()
     clash.stop()
     home.stop()
 
