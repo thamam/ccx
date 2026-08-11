@@ -166,12 +166,45 @@ class Stub:
             self._log(f"ignoring message with no text content: {sorted(msg)}")
             return
         body, attrs = envelope.decode(content)
+
+        hops = envelope.parse_hops(attrs.get("hop-chain"))
+        refusal = self._loop_check(hops)
+        if refusal:
+            # A message that dies quietly is a bug report nobody files, so the
+            # drop is announced in the thread rather than logged and forgotten.
+            self._log(f"refused: {refusal}")
+            self._say(f"[ccx] message not delivered: {refusal}")
+            return
+        # Remembered so peer_send can extend the chain when this thread replies.
+        # Codex has no envelope of its own, so the stub is where the chain lives
+        # across the boundary.
+        claudereg.update(self.pid, ccxInboundHops=envelope.render_hops(hops))
+
         text = self._render(body, attrs, msg)
         try:
             self.codex.start_turn(self.thread_id, text)
             self._log(f"delivered {len(text)} chars to {self.thread_id}")
         except codexrpc.CodexError as exc:
             self._log(f"delivery failed: {exc}")
+
+    def _loop_check(self, hops):
+        """Why this message must not be delivered, or None.
+
+        Length only. Refusing a message whose chain already contains this
+        session was the first attempt and it is wrong: A→B→A is an ordinary
+        round trip, and in any sustained conversation both ids repeat. The
+        chain's length is the only signal that separates a conversation from a
+        runaway, which is why the spec bounds it rather than deduplicating it.
+        """
+        if len(hops) >= envelope.HOP_LIMIT:
+            return f"its hop chain reached the limit of {envelope.HOP_LIMIT}"
+        return None
+
+    def _say(self, line):
+        try:
+            self.codex.start_turn(self.thread_id, line)
+        except codexrpc.CodexError as exc:
+            self._log(f"could not report the drop: {exc}")
 
     def _control(self, msg):
         """Relay a delivery receipt into the Codex thread.
@@ -220,11 +253,12 @@ class Stub:
         sender = attrs.get("from") or msg.get("from") or "unknown"
         name = attrs.get("from-name")
         kind = "Codex" if (name or "").startswith("codex:") else "Claude Code"
-        who = f"{name} ({sender})" if name else sender
-        return (
-            f"[message from {kind} peer {who}]\n\n{body}\n\n"
-            f"To reply, call the ccx tool `peer_send` with to={sender!r}."
-        )
+        who = name or sender
+        # States availability, it does not ask for a reply. "To reply, call
+        # peer_send with…" reads as an instruction, and two agents that both
+        # obey it acknowledge each other forever. The hop chain now stops that
+        # loop, but this is what made it tempting.
+        return f"[message from {kind} peer {who}]\n\n{body}\n\nReply address: {sender}"
 
     def _log(self, line):
         if self.verbose:

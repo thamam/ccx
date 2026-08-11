@@ -111,7 +111,11 @@ class Bridge:
             self._log(f"app-server unreachable: {exc}")
             return
 
-        for thread_id in live - set(self.stubs):
+        # Sorted, so which of two same-cycle claimants keeps a clean name is
+        # reproducible rather than set-iteration order. Arbitrary either way,
+        # but a user watching two sessions start should get the same answer
+        # twice.
+        for thread_id in sorted(live - set(self.stubs)):
             self._spawn(thread_id)
         for thread_id in set(self.stubs) - live:
             self._reap(thread_id)

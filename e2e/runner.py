@@ -31,6 +31,16 @@ def run(only=None, keep=False):
             print(f"unknown scenario(s): {sorted(unknown)}")
             return 2
 
+    # Residue from an earlier run is not this run's leak, and letting it fail
+    # the first scenario points the reader at the wrong culprit. Cleared out
+    # loud rather than silently: if something is leaking, the previous run said
+    # so at its own end.
+    stale = scratch_mod.surviving_roots()
+    if stale and not keep:
+        print(f"clearing scratch roots left by an earlier run: {stale}")
+        for root in stale:
+            scratch_mod.remove_settled(root)
+
     failures = []
     for scenario in selected:
         print(f"\n=== {scenario.name} — {scenario.summary}")

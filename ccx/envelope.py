@@ -9,9 +9,12 @@ always, and only the attributes that are present.
 See docs/protocol-notes.md section 1.4.
 """
 
+import hashlib
 import re
 
 TAG = "cross-session-message"
+# `hop-chain` is loop prevention: a comma list of 24-hex ids, max 32.
+HOP_LIMIT = 32
 ATTR_ORDER = ("from", "from-session", "hop-chain", "from-name", "from-mode")
 NAME_LIMIT = 64
 MODES = ("bypass", "prompting")
@@ -20,6 +23,26 @@ _ENVELOPE = re.compile(
     rf"^<{TAG}((?:\s+[a-z-]+=\"[^\"]*\")*)\s*>\n(.*)\n</{TAG}>$", re.DOTALL
 )
 _ATTR = re.compile(r'([a-z-]+)="([^"]*)"')
+
+
+def hop_id(seed):
+    """A stable 24-hex id for one participant.
+
+    Per-participant rather than per-message on purpose: a chain that already
+    contains your own id means the message has been through you, which detects
+    a cycle on its second hop instead of waiting out the 32-hop cap. Two agents
+    that politely acknowledge each other would otherwise trade 32 turns before
+    anything stopped them.
+    """
+    return hashlib.sha256(seed.encode()).hexdigest()[:24]
+
+
+def parse_hops(value):
+    return [hop for hop in (value or "").split(",") if hop]
+
+
+def render_hops(hops):
+    return ",".join(hops)
 
 
 def clean_name(name):

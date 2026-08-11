@@ -60,13 +60,17 @@ def run(ctx):
         f"chosen name was not honoured: {names[orion.thread_id]!r}"
     )
 
-    # Addressable by the chosen name, with nothing else to type.
+    # Address whichever thread actually holds the clean name: within one poll
+    # cycle either claimant may win, and the test must not assume which.
+    by_thread = {vega.thread_id: vega, twin.thread_id: twin}
+    holder = by_thread[next(t for t in by_thread if names[t] == "vega")]
+
     home.client().start_turn(
         orion.thread_id,
         f"Call the ccx MCP tool `peer_send` with to='vega' and message exactly: "
         f"{PING}. Then say DONE.",
     )
-    vega.wait_for(PING, timeout=180)
+    holder.wait_for(PING, timeout=180)
 
     # The other collision shape: a thread claiming a name already registered,
     # arriving in a later poll cycle than the incumbent.

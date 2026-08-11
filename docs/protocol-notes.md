@@ -400,6 +400,23 @@ fallback if `_meta` ever disappears.)
 
 ## 5. Test hygiene — learned the hard way
 
+**MCP servers do not inherit the app-server's environment.** Setting
+`CLAUDE_CONFIG_DIR` on `codex app-server daemon start` does *not* reach an MCP
+server the daemon spawns — Codex hands MCP children a sanitised environment. A
+plugin-installed ccx therefore always reads the default `~/.claude` registry,
+which is correct for real users and a hazard for demos and recordings: the
+first bring-up of a four-pane demo listed nine of the user's real sessions, by
+name and socket path, in a Codex agent's `peers_list`. The only way through is
+an explicit `[mcp_servers.ccx.env]` block in the scratch `CODEX_HOME`'s
+`config.toml`. Verify with a direct `mcpServer/tool/call` before trusting it.
+
+**Beware interactive-by-default shell aliases.** This machine aliases `cp` to
+`cp -i`, so a plain `cp` in a script sits at an overwrite prompt forever: no
+error, no output, a step that simply never returns. Use `command cp` or `cp -f`
+in anything the harness shells out to. Same class of failure as the
+`daemon stop` hang — silent, and indistinguishable from slowness.
+
+
 Anything that touches these surfaces leaves user-visible residue. Every test
 must clean up after itself:
 

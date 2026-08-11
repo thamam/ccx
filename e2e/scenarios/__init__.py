@@ -13,6 +13,7 @@ from . import (
     m7_plugin_install,
     m8_codex_to_codex,
     m9_chosen_names,
+    m10_loop_bounded,
 )
 
 Scenario = namedtuple("Scenario", "name summary run")
@@ -67,5 +68,10 @@ SCENARIOS = [
         "m9-chosen-names",
         "Codex threads take names a human chose, and collisions stay unambiguous",
         m9_chosen_names.run,
+    ),
+    Scenario(
+        "m10-loop-bounded",
+        "two agents that acknowledge on sight stop instead of ping-ponging forever",
+        m10_loop_bounded.run,
     ),
 ]

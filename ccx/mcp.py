@@ -201,12 +201,27 @@ def tool_peer_send(params):
         raise McpError("peer_send needs both `to` and `message`")
 
     target = resolve(to, exclude_thread=thread_id)
+    stub = stub_entries().get(thread_id) or {}
     from_address = reply_address(thread_id)
     msg_id = str(uuid.uuid4())
+
+    # Carry the chain of whatever we are replying to and add ourselves. Codex
+    # has no envelope, so the inbound chain is whatever our stub last recorded
+    # for this thread.
+    hops = envelope.parse_hops(stub.get("ccxInboundHops")) + [
+        envelope.hop_id(thread_id)
+    ]
+    if len(hops) > envelope.HOP_LIMIT:
+        raise McpError(
+            f"refusing to send: this conversation has already passed through "
+            f"{len(hops) - 1} sessions, at the hop limit of "
+            f"{envelope.HOP_LIMIT}. Something is relaying in a circle."
+        )
 
     content = envelope.encode(
         body,
         from_=from_address,
+        hop_chain=envelope.render_hops(hops),
         # The receiving model must be able to tell this is not a Claude session.
         from_name=f"codex:{thread_id[-6:]}",
         from_mode=_mode(meta),
