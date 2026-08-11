@@ -25,6 +25,11 @@ def main(argv=None):
     p_doctor.add_argument("--codex-home", default=None)
 
     p_codex = sub.add_parser("codex", help="launch codex attached to the app-server")
+    p_codex.add_argument(
+        "--name",
+        default=None,
+        help="name this session's thread, so peers can address it by that name",
+    )
     p_codex.add_argument("args", nargs=argparse.REMAINDER)
 
     p_e2e = sub.add_parser("e2e", help="run the full-system acceptance suite")
@@ -58,15 +63,20 @@ def main(argv=None):
         return doctor_run(args.codex_home)
 
     if args.command == "codex":
-        return _codex(args.args)
+        return _codex(args.args, args.name)
 
     print(f"ccx {args.command}: not implemented yet", file=sys.stderr)
     return 3
 
 
-def _codex(extra):
+def _codex(extra, name=None):
     """Launch codex attached to the app-server, which is what makes a thread
-    reachable at all. Sending works from any Codex session; receiving does not."""
+    reachable at all. Sending works from any Codex session; receiving does not.
+
+    With --name, the thread is created and named up front and then resumed, so
+    the name is set on the thread itself rather than inferred from this
+    process. Without it, nothing changes.
+    """
     import os
 
     from . import codexrpc
@@ -80,8 +90,19 @@ def _codex(extra):
         print(f"ccx codex: {exc}", file=sys.stderr)
         return 1
     sock = codexrpc.control_socket(home)
-    argv = ["codex", "--remote", f"unix://{sock}", *[a for a in extra if a != "--"]]
-    os.execvp("codex", argv)
+
+    passthrough = [a for a in extra if a != "--"]
+    if name:
+        try:
+            client = codexrpc.Codex(home)
+            thread_id = client.start_thread(cwd=os.getcwd(), name=name)
+            client.close()
+        except codexrpc.CodexError as exc:
+            print(f"ccx codex: could not name the thread: {exc}", file=sys.stderr)
+            return 1
+        passthrough = ["resume", thread_id, *passthrough]
+
+    os.execvp("codex", ["codex", "--remote", f"unix://{sock}", *passthrough])
 
 
 if __name__ == "__main__":

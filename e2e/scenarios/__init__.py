@@ -12,6 +12,7 @@ from . import (
     m6_conversation,
     m7_plugin_install,
     m8_codex_to_codex,
+    m9_chosen_names,
 )
 
 Scenario = namedtuple("Scenario", "name summary run")
@@ -61,5 +62,10 @@ SCENARIOS = [
         "m8-codex-to-codex",
         "two Codex threads discover each other and hold a round trip",
         m8_codex_to_codex.run,
+    ),
+    Scenario(
+        "m9-chosen-names",
+        "Codex threads take names a human chose, and collisions stay unambiguous",
+        m9_chosen_names.run,
     ),
 ]

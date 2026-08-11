@@ -313,6 +313,33 @@ class Codex:
             "thread/inject_items", {"threadId": thread_id, "items": items}
         )
 
+    def start_thread(self, cwd=None, name=None):
+        """Create a thread up front so it can be named before anyone attaches.
+
+        The app-server has a real per-thread naming channel, so ccx uses it
+        rather than correlating environment variables to threads: the name is
+        set on the thread itself and every client sees the same value.
+        """
+        result = self.call("thread/start", {"cwd": cwd} if cwd else {}, timeout=30)
+        thread_id = (result.get("thread") or {}).get("id") or result.get("threadId")
+        if not thread_id:
+            raise CodexError(f"thread/start returned no thread id: {result}")
+        if name:
+            self.set_thread_name(thread_id, name)
+        return thread_id
+
+    def set_thread_name(self, thread_id, name):
+        # Note the method is `thread/name/set`, not `thread/setName`.
+        return self.call(
+            "thread/name/set", {"threadId": thread_id, "name": name}, timeout=15
+        )
+
+    def thread_meta(self, thread_id):
+        try:
+            return (self.read_thread(thread_id) or {}).get("thread") or {}
+        except CodexError:
+            return {}
+
     def read_thread(self, thread_id, include_turns=False):
         """Thread metadata, and with include_turns the rollout history.
 

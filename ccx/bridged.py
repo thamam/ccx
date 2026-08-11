@@ -23,16 +23,28 @@ POLL_SECONDS = 2.0
 REAP_TIMEOUT = 5.0
 
 
-def thread_name(client, thread_id):
-    """`codex-<cwd-slug>-<short-thread-id>` — distinct enough to avoid Claude's
-    `[ref]` disambiguation prompt."""
-    cwd = ""
-    try:
-        thread = (client.read_thread(thread_id) or {}).get("thread") or {}
-        cwd = thread.get("cwd") or ""
-    except codexrpc.CodexError:
-        pass
-    return f"codex-{claudereg.slug(cwd)}-{thread_id[-6:]}"
+def thread_name(client, thread_id, taken=()):
+    """The peer name for a thread.
+
+    An explicit thread name wins — that is what `ccx codex --name vega` sets on
+    the thread itself. Otherwise the derived `codex-<cwd-slug>-<short-id>` is
+    used, unchanged, so nobody who is not naming threads has to care.
+
+    Names are made unique here rather than left to be disambiguated later.
+    Human-chosen names collide — two threads called `lead` is an ordinary
+    Tuesday — and a name that silently routes to one of two threads is worse
+    than an ugly unique one. The later claimant gets the short thread id
+    appended; the first keeps the clean name.
+    """
+    meta = client.thread_meta(thread_id)
+    chosen = (meta.get("name") or "").strip()
+    if chosen:
+        name = claudereg.slug(chosen, limit=48)
+    else:
+        name = f"codex-{claudereg.slug(meta.get('cwd') or '')}-{thread_id[-6:]}"
+    if name in taken:
+        name = f"{name}-{thread_id[-6:]}"
+    return name
 
 
 class Bridge:
@@ -111,7 +123,12 @@ class Bridge:
                 del self.stubs[thread_id]
 
     def _spawn(self, thread_id):
-        name = thread_name(self.client, thread_id)
+        taken = {
+            entry.get("name")
+            for entry in claudereg.read_all().values()
+            if entry.get("name")
+        }
+        name = thread_name(self.client, thread_id, taken=taken)
         cmd = [
             sys.executable,
             "-m",

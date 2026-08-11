@@ -167,10 +167,13 @@ def _alive(pid):
 class CodexTui:
     """A `codex --remote` TUI in tmux, attached to a scratch daemon."""
 
-    def __init__(self, home, name="tui", cwd=None):
+    def __init__(self, home, name="tui", cwd=None, thread_name=None):
         self.home = home
         self.tmux_name = f"ccx-codex-{name}"
         self.cwd = cwd or home.root
+        # When set, the thread is created and named through the app-server
+        # before the TUI attaches — the same path `ccx codex --name` takes.
+        self.thread_name = thread_name
         self.thread_id = None
         self._stopped = False
 
@@ -183,6 +186,9 @@ class CodexTui:
         cmd = (
             f"CODEX_HOME={self.home.root} codex --remote unix://{self.home.control_sock}"
         )
+        if self.thread_name:
+            named = self.home.client().start_thread(cwd=self.cwd, name=self.thread_name)
+            cmd += f" resume {named}"
         subprocess.run(
             ["tmux", "new-session", "-d", "-s", self.tmux_name, "-x", "200", "-y", "50",
              "-c", self.cwd, cmd],

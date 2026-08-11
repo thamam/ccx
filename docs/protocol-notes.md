@@ -336,6 +336,7 @@ for schema work, not for reaching live sessions.
 | `thread/read` | history |
 | `thread/start` | `{cwd, config:{...}}` — `config` is free-form, accepts `mcp_servers` overrides |
 | `thread/resume` | `{threadId}` |
+| `thread/name/set` | `{threadId, name}` — a real per-thread name every client sees |
 
 Full schema: `codex app-server generate-json-schema --out <dir>` (39 files,
 90 client methods). Regenerate rather than guess.

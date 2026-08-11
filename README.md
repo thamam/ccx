@@ -69,9 +69,16 @@ Nothing to start: the Claude-side hook brings up `ccx daemon`. To run it by
 hand, or to launch a Codex session that can be reached:
 
 ```bash
-ccx daemon          # keeps one stub per live Codex thread
-ccx codex           # launch a Codex session that can RECEIVE messages
+ccx daemon              # keeps one stub per live Codex thread
+ccx codex               # launch a Codex session that can RECEIVE messages
+ccx codex --name vega   # ...and let peers address it as `vega`
 ```
+
+Without `--name`, a Codex peer is called `codex-<cwd>-<thread>` — correct, and
+not something anyone wants to type. `--name` sets the name on the thread itself
+through the app-server, so every client agrees on it. If the name is already
+taken the later thread gets the short thread id appended, because a name that
+routes to one of two threads is worse than an ugly unique one.
 
 Worth aliasing, because a plain `codex` session can send but can never be
 reached:
@@ -162,6 +169,7 @@ when it is killed mid-run.
 | `m6-conversation` | a three-message conversation in both directions, addressed only by received addresses |
 | `m7-plugin-install` | a real install: Codex gets the MCP tools, Claude gets only the hook, and the hook alone brings the bridge up |
 | `m8-codex-to-codex` | two Codex threads discover each other, message both ways, and neither can address itself |
+| `m9-chosen-names` | `--name` is honoured, addressable, and a name collision stays unambiguous |
 
 ## What this is not
 
