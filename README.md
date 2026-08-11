@@ -22,6 +22,16 @@ every thread and can stamp the right reply address.
 The reply address is the same socket on both legs. Replying is literally
 copying `from` into `to`. There is no routing table.
 
+![Two Claude Code sessions and two Codex threads messaging each other](docs/media/ccx-demo.gif)
+
+Four live sessions in one tmux grid — Claude Code left, Codex right, leads on
+top. In order: Codex-TL lists its peers and sees both kinds; Codex-TL and
+Codex-worker hold a conversation with no Claude session in the path; CC-TL's
+`ListAgents` shows the Codex threads as ordinary peers; CC-TL and CC-worker
+exchange native Claude messages, with no ccx involved; and Codex-TL messages
+CC-TL across providers and gets a reply. Real sessions on real subscriptions,
+cut down from six minutes — the waiting is what was removed.
+
 ## Install
 
 Two commands per harness. ccx is Python 3.11+ and standard library only, so the
